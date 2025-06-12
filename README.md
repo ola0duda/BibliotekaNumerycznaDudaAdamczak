@@ -38,8 +38,7 @@ Projekt edukacyjny przeznaczony do nauki.
 4. Dodaj bibliotekę do swojego projektu:
     - W 'C/C++ -> General -> Additional Include Directiories' i 'Linker -> General -> Additional Include Directories' dołącz katalog 'include/' do ścieżek nagłówków.
     - W 'Linker -> General -> Additional Library Directories' dodaj katalog 'src/' do ścieżek bibliotek.
-    - W 'Linker -> General -> Additional Library Directories' dodaj katalog 'BibliotekaNumerycznaDudaAdamczak/x64/Debug' do ścieżek bibliotek.
-    - Dołącz bibliotekę dodając nazwę BibliotekaNumerycznaDudaAdamczak.lib w 'Linker -> Input -> Additional Dependencies'.
+    - Dołącz bibliotekę dodając nazwę final.lib w 'Linker -> Input -> Additional Dependencies'.
 
 ----------------------------------------------------------
 
