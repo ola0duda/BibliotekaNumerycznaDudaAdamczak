@@ -1,188 +1,131 @@
 #include "CalkowanieNumeryczne.h"
-
+#include "Interpolacja.h" // Do³¹czenie dla funkcji horner
 #include <iostream>
 
 using namespace std;
 
-//do obliczania normalnie z liczb
+// Definicja zmiennej globalnej 'ai', aby biblioteka by³a samowystarczalna.
+double ai[5] = { 0 };
 
-//metoda prostok¹tów
-double calka_prostokat(double* przedzial, double* ai, int stopien, int n) {
-	double xi, fx;
+
+// --- Ca³kowanie wielomianu zadanego przez wspó³czynniki ---
+
+// Metoda prostok¹tów
+double calka_prostokat(double* przedzial, double* ai_coeffs, int stopien, int n) {
 	double h = (przedzial[1] - przedzial[0]) / n;
 	double suma = 0.0;
-	double wynik;
-
 	for (int i = 0; i < n; i++) {
-		xi = przedzial[0] + i * h;
-		fx = horner(xi, ai, stopien + 1);
-		suma += fx;
-	}
-
-	wynik = suma * h;
-
-	return wynik;
-}
-
-// wzór trapezów
-double calka_trapez(double* przedzial, double* ai, int stopien, int n) {
-	double xi, fxi, xi1, fxi1;
-	double h = (przedzial[1] - przedzial[0]) / n;
-	double iloczyn = 0.0, wynik = 0.0;
-
-	xi1 = przedzial[0];
-	fxi1 = horner(xi1, ai, stopien + 1);
-
-	for (int i = 1; i <= n; i++) {
-		xi = przedzial[0] + i * h;
-		fxi = horner(xi, ai, stopien + 1);
-		iloczyn += (xi - xi1) * (fxi + fxi1);			//do pola trapezu (pó¿niej dzielenie przez 2)
-
-		xi1 = xi;			//przesuniecie xi na xi-1
-		fxi1 = fxi;			//przesuniecie f(xi) na f(x-1)
-	}
-	wynik = iloczyn / 2;
-	return wynik;
-}
-
-//wzór Simpsona
-double calka_simpson(double* przedzial, double* ai, int stopien, int n) {
-	//n to parzysta liczba przedzia³ów (podwójne kroki, 2n punktów)
-	double h = (przedzial[1] - przedzial[0]) / (2 * n);
-	double suma1 = 0.0, suma2 = 0.0;		//sumy dla f(x2i-1) i f(x2i)
-	double wynik = 0.0;
-
-	double fx0 = horner(przedzial[0], ai, stopien + 1);
-	double fx2n = horner(przedzial[1], ai, stopien + 1);
-
-	for (int i = 1; i < 2 * n; i++) {
 		double xi = przedzial[0] + i * h;
-		double fxi = horner(xi, ai, stopien + 1);
-		if (i % 2 == 0) {
-			suma2 += fxi;
-		}
-		else {
-			suma1 += fxi;
-		}
+		suma += horner(xi, ai_coeffs, stopien + 1);
 	}
-
-	wynik = (h / 3.0) * (fx0 + 4 * suma1 + 2 * suma2 + fx2n);
-	return wynik;
+	return suma * h;
 }
-//------------------
-//z funkcja jako argumentem
-	//metoda prostok¹tów
+
+// Metoda trapezów
+double calka_trapez(double* przedzial, double* ai_coeffs, int stopien, int n) {
+	double h = (przedzial[1] - przedzial[0]) / n;
+	double suma = horner(przedzial[0], ai_coeffs, stopien + 1) + horner(przedzial[1], ai_coeffs, stopien + 1);
+	for (int i = 1; i < n; i++) {
+		suma += 2 * horner(przedzial[0] + i * h, ai_coeffs, stopien + 1);
+	}
+	return suma * h / 2.0;
+}
+
+// Metoda Simpsona
+double calka_simpson(double* przedzial, double* ai_coeffs, int stopien, int n) {
+	if (n % 2 != 0) {
+		// W metodzie Simpsona liczba podprzedzia³ów musi byæ parzysta.
+		n++;
+	}
+	double h = (przedzial[1] - przedzial[0]) / n;
+	double suma = horner(przedzial[0], ai_coeffs, stopien + 1) + horner(przedzial[1], ai_coeffs, stopien + 1);
+
+	for (int i = 1; i < n; i += 2) {
+		suma += 4 * horner(przedzial[0] + i * h, ai_coeffs, stopien + 1);
+	}
+	for (int i = 2; i < n - 1; i += 2) {
+		suma += 2 * horner(przedzial[0] + i * h, ai_coeffs, stopien + 1);
+	}
+	return suma * h / 3.0;
+}
+
+
+// --- Ca³kowanie z u¿yciem wskaŸnika na funkcjê ---
+
+// Metoda prostok¹tów
 double calka_prostokat_funkcja(double* przedzial, double(*f)(double), int n) {
-	double xi;
 	double h = (przedzial[1] - przedzial[0]) / n;
 	double suma = 0.0;
-	double wynik;
-
 	for (int i = 0; i < n; i++) {
-		xi = przedzial[0] + i * h;
-		suma += f(xi);
+		suma += f(przedzial[0] + i * h);
 	}
-
-	wynik = suma * h;
-
-	return wynik;
+	return suma * h;
 }
 
-//wzór trapezów
+// Metoda trapezów
 double calka_trapez_funkcja(double* przedzial, double(*f)(double), int n) {
-	double xi, xi1;
 	double h = (przedzial[1] - przedzial[0]) / n;
-	double iloczyn = 0.0, wynik = 0.0;
-
-	xi1 = przedzial[0];
-
-	for (int i = 1; i <= n; i++) {
-		xi = przedzial[0] + i * h;
-		iloczyn += (xi - xi1) * (f(xi) + f(xi1));			//do pola trapezu (pó¿niej dzielenie przez 2)
-
-		xi1 = xi;			//przesuniecie xi na xi-1
+	double suma = f(przedzial[0]) + f(przedzial[1]);
+	for (int i = 1; i < n; i++) {
+		suma += 2 * f(przedzial[0] + i * h);
 	}
-	wynik = iloczyn / 2;
-	return wynik;
+	return suma * h / 2.0;
 }
 
-//wzór Simpsona
+// Metoda Simpsona
 double calka_simpson_funkcja(double* przedzial, double(*f)(double), int n) {
-	//n to parzysta liczba przedzia³ów (podwójne kroki, 2n punktów)
-	double h = (przedzial[1] - przedzial[0]) / (2 * n);
-	double suma1 = 0.0, suma2 = 0.0;		//sumy dla f(x2i-1) i f(x2i)
-	double wynik = 0.0;
-
-	double fx0 = f(przedzial[0]);
-	double fx2n = f(przedzial[1]);
-
-	for (int i = 1; i < 2 * n; i++) {
-		double xi = przedzial[0] + i * h;
-		if (i % 2 == 0) {
-			suma2 += f(xi);
-		}
-		else {
-			suma1 += f(xi);
-		}
+	if (n % 2 != 0) {
+		n++;
 	}
+	double h = (przedzial[1] - przedzial[0]) / n;
+	double suma = f(przedzial[0]) + f(przedzial[1]);
 
-	wynik = (h / 3.0) * (fx0 + 4 * suma1 + 2 * suma2 + fx2n);
-	return wynik;
+	for (int i = 1; i < n; i += 2) {
+		suma += 4 * f(przedzial[0] + i * h);
+	}
+	for (int i = 2; i < n - 1; i += 2) {
+		suma += 2 * f(przedzial[0] + i * h);
+	}
+	return suma * h / 3.0;
 }
 
-//wspolrzedne i wagi w kwadraturze G-L (2, 3 i 4 wêze³)
+
+// --- Kwadratura Gaussa-Legendre'a ---
+
 void GL(int n, double x[], double w[]) {
 	if (n == 2) {
-		x[0] = -1.0 / sqrt(3);
-		x[1] = 1.0 / sqrt(3);
-		w[0] = 1.0;
-		w[1] = 1.0;
+		x[0] = -1.0 / sqrt(3); x[1] = 1.0 / sqrt(3);
+		w[0] = 1.0; w[1] = 1.0;
 	}
 	else if (n == 3) {
-		x[0] = -sqrt(3.0 / 5.0);
-		x[1] = 0.0;
-		x[2] = sqrt(3.0 / 5.0);
-		w[0] = 5.0 / 9.0;
-		w[1] = 8.0 / 9.0;
-		w[2] = 5.0 / 9.0;
+		x[0] = -sqrt(3.0 / 5.0); x[1] = 0.0; x[2] = sqrt(3.0 / 5.0);
+		w[0] = 5.0 / 9.0; w[1] = 8.0 / 9.0; w[2] = 5.0 / 9.0;
 	}
 	else if (n == 4) {
-		x[0] = -0.861136;
-		x[1] = -0.339981;
-		x[2] = 0.339981;
-		x[3] = 0.861136;
-		w[0] = 0.347855;
-		w[1] = 0.652145;
-		w[2] = 0.652145;
-		w[3] = 0.347855;
+		x[0] = -0.861136; x[1] = -0.339981; x[2] = 0.339981; x[3] = 0.861136;
+		w[0] = 0.347855; w[1] = 0.652145; w[2] = 0.652145; w[3] = 0.347855;
 	}
 }
 
-//funkcja obliczaj¹ca kwadraturê - jednym z jej argumentów jest funkcja podca³kowa
-double kwadraturaGL1(double (*f)(double), double a, double b, int n, int m) {                //m - liczba podprzedzialow
+double kwadraturaGL1(double (*f)(double), double a, double b, int n, int m) {
 	double x[5], w[5];
 	GL(n, x, w);
 
-	double wynik = 0.0;
+	double calka = 0.0;
 	double h = (b - a) / m;
+	double c1 = (b - a) / (2.0 * m);
 
 	for (int j = 0; j < m; ++j) {
-		double aj = a + j * h;
-		double bj = aj + h;
-
+		double srodek_podprzedzialu = a + (j + 0.5) * h;
 		for (int i = 0; i < n; ++i) {
-			double xi = ((bj - aj) / 2) * x[i] + (aj + bj) / 2;         //dostosowanie wartosci pod przedzial calkowania (wagi podane w innej funkcji s¹ odpowiednie dla [-1, 1])
-			wynik += w[i] * f(xi);           //wynik obliczany zgodnie z funkcj¹ wi*f(xi)
+			calka += w[i] * f(srodek_podprzedzialu + c1 * x[i]);
 		}
 	}
-
-	wynik *= (b - a) / (2 * m);
-
-	return wynik;
+	return calka * c1;
 }
 
-double ai[];		//zmienna globalna ze wspolczynnikami wielomianu, ¿eby wykorzystaæ je w funkcji podca³kowej wielomian()
-
+// Ta funkcja zale¿y od globalnej tablicy `ai`, która jest teraz zdefiniowana na górze pliku.
 double wielomian(double x) {
-	return ai[0] + ai[1] * x + ai[2] * pow(x, 2) + ai[3] * pow(x, 3) + ai[4] * pow(x, 4);
+	// U¿ywamy hornera z zdefiniowanym rozmiarem 5, zgodnym z globaln¹ tablic¹ `ai`
+	return horner(x, ai, 5);
 }
